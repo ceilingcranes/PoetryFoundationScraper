@@ -54,34 +54,57 @@ def scrape_poem(poem_url):
         'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0',
     })
 
-    poemPage = requests.get(poem_url)
-    poemSoup = BeautifulSoup(poemPage.text)
+    poem_page = requests.get(poem_url)
+    poem_soup = BeautifulSoup(poem_page.text, 'html.parser')
 
-    poemTitle = poemSoup.find('h1')
+    poem_title = poem_soup.find('h1')  # TODO: strip
 
-    if poemTitle:
+    if poem_title:
+        try:
+            poem_author = poem_soup.find('span', {'class': 'c-txt c-txt_attribution'}).find('a').text
+        except:
+            poem_author = ""
 
-        poemContent = poemSoup.find('div', {'class': 'o-poem'})
-        poemLines = poemContent.findAll('div')
-        poemlines = ""
-        print("=====================")
-        for line in poemLines:
-            print(line.text)
-            poemlines = poemlines + line.text+'\n'
-        print("=====================")
-        print(poemlines)
+        poem_content = poem_soup.find('div', {'class': 'o-poem'})
+        poem_lines = poem_content.findAll('div')
 
-if __name__=="__main__":
+        poemtext = ""
+        for line in poem_lines:
+            poemtext = poemtext + line.text+'\n'
+        return poem_title.text, poem_author, poemtext
+    return "", "", ""
+
+if __name__ == "__main__":
 
     # URL for free-verse poetry from poetryfoundation.org
     search_url = "https://www.poetryfoundation.org/poems/browse#page=1&sort_by=recently_added&forms=259"
-    urls = scrape_from_search(search_url)
+    # urls = scrape_from_search(search_url)
 
     # with open('poemurls','wb') as f:
     #     pickle.dump(urls, f)
-    # with open('poemurls', 'rb') as f:
-    #     urls = pickle.load(f)
-    # print(len(urls))
+    with open('poemurls', 'rb') as f:
+        urls = pickle.load(f)
+    print(len(urls))
 
     # test_poem = "https://www.poetryfoundation.org/poetrymagazine/poems/146236/cardi-b-tells-me-about-myself"
     # scrape_poem(test_poem)
+    dflen = 0
+    try:
+        df = pd.read_csv('poem_data.csv')
+        dflen = df.shape[0]
+
+    except:
+        df = pd.DataFrame(columns=['title', 'author', 'text'])
+
+    count = 0
+    for url in urls:
+        if count > dflen:
+            title, author, text = scrape_poem(url)
+            df = df.append({'title': title, 'author': author, 'text': text}, ignore_index=True)
+            if count % 100 == 0:
+                df.to_csv('poem_data.csv', index=False)
+                print("storing data | ", count)
+        count += 1
+    print(df.head)
+    df.to_csv("poem_data.csv", index=False)
+
